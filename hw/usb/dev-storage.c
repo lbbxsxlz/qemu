@@ -546,8 +546,7 @@ static void usb_msd_handle_data(USBDevice *dev, USBPacket *p)
                     }
                 }
             }
-            if (p->actual_length < p->iov.size && (p->short_not_ok ||
-                    s->scsi_len >= p->ep->max_packet_size)) {
+            if (p->actual_length < p->iov.size && s->mode == USB_MSDM_DATAIN) {
                 DPRINTF("Deferring packet %p [wait data-in]\n", p);
                 s->packet = p;
                 p->status = USB_RET_ASYNC;
@@ -612,7 +611,10 @@ static void usb_msd_storage_realize(USBDevice *dev, Error **errp)
         return;
     }
 
-    blkconf_blocksizes(&s->conf);
+    if (!blkconf_blocksizes(&s->conf, errp)) {
+        return;
+    }
+
     if (!blkconf_apply_backend_options(&s->conf, blk_is_read_only(blk), true,
                                        errp)) {
         return;
@@ -733,9 +735,8 @@ static void usb_msd_set_bootindex(Object *obj, Visitor *v, const char *name,
     int32_t boot_index;
     Error *local_err = NULL;
 
-    visit_type_int32(v, name, &boot_index, &local_err);
-    if (local_err) {
-        goto out;
+    if (!visit_type_int32(v, name, &boot_index, errp)) {
+        return;
     }
     /* check whether bootindex is present in fw_boot_order list  */
     check_boot_index(boot_index, &local_err);
@@ -746,7 +747,7 @@ static void usb_msd_set_bootindex(Object *obj, Visitor *v, const char *name,
     s->conf.bootindex = boot_index;
 
     if (s->scsi_dev) {
-        object_property_set_int(OBJECT(s->scsi_dev), boot_index, "bootindex",
+        object_property_set_int(OBJECT(s->scsi_dev), "bootindex", boot_index,
                                 &error_abort);
     }
 
@@ -767,7 +768,7 @@ static void usb_msd_instance_init(Object *obj)
     object_property_add(obj, "bootindex", "int32",
                         usb_msd_get_bootindex,
                         usb_msd_set_bootindex, NULL, NULL);
-    object_property_set_int(obj, -1, "bootindex", NULL);
+    object_property_set_int(obj, "bootindex", -1, NULL);
 }
 
 static void usb_msd_class_bot_initfn(ObjectClass *klass, void *data)

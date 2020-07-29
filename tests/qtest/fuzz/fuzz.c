@@ -19,6 +19,7 @@
 #include "sysemu/runstate.h"
 #include "sysemu/sysemu.h"
 #include "qemu/main-loop.h"
+#include "qemu/rcu.h"
 #include "tests/qtest/libqtest.h"
 #include "tests/qtest/libqos/qgraph.h"
 #include "fuzz.h"
@@ -91,7 +92,12 @@ static void usage(char *path)
         printf(" * %s  : %s\n", tmp->target->name,
                 tmp->target->description);
     }
-    printf("Alternatively, add -target-FUZZ_TARGET to the executable name\n");
+    printf("Alternatively, add -target-FUZZ_TARGET to the executable name\n\n"
+           "Set the environment variable FUZZ_SERIALIZE_QTEST=1 to serialize\n"
+           "QTest commands into an ASCII protocol. Useful for building crash\n"
+           "reproducers, but slows down execution.\n\n"
+           "Set the environment variable QTEST_LOG=1 to log all qtest commands"
+           "\n");
     exit(0);
 }
 
@@ -137,7 +143,8 @@ int LLVMFuzzerInitialize(int *argc, char ***argv, char ***envp)
 {
 
     char *target_name;
-    char *dir;
+    char *bindir, *datadir;
+    bool serialize = false;
 
     /* Initialize qgraph and modules */
     qos_graph_init();
@@ -157,11 +164,13 @@ int LLVMFuzzerInitialize(int *argc, char ***argv, char ***envp)
          * location of the executable. Using this we add exec_dir/pc-bios to
          * the datadirs.
          */
-        dir = g_build_filename(g_path_get_dirname(**argv), "pc-bios", NULL);
-        if (g_file_test(dir, G_FILE_TEST_IS_DIR)) {
-            qemu_add_data_dir(dir);
+        bindir = g_path_get_dirname(**argv);
+        datadir = g_build_filename(bindir, "pc-bios", NULL);
+        g_free(bindir);
+        if (g_file_test(datadir, G_FILE_TEST_IS_DIR)) {
+            qemu_add_data_dir(datadir);
         }
-        g_free(dir);
+        g_free(datadir);
     } else if (*argc > 1) {  /* The target is specified as an argument */
         target_name = (*argv)[1];
         if (!strstr(target_name, "--fuzz-target=")) {
@@ -171,6 +180,13 @@ int LLVMFuzzerInitialize(int *argc, char ***argv, char ***envp)
     } else {
         usage(**argv);
     }
+
+    /* Should we always serialize qtest commands? */
+    if (getenv("FUZZ_SERIALIZE_QTEST")) {
+        serialize = true;
+    }
+
+    fuzz_qtest_set_serialize(serialize);
 
     /* Identify the fuzz target */
     fuzz_target = fuzz_get_target(target_name);
@@ -185,13 +201,20 @@ int LLVMFuzzerInitialize(int *argc, char ***argv, char ***envp)
     }
 
     /* Run QEMU's softmmu main with the fuzz-target dependent arguments */
-    const char *init_cmdline = fuzz_target->get_init_cmdline(fuzz_target);
+    GString *cmd_line = fuzz_target->get_init_cmdline(fuzz_target);
+    g_string_append_printf(cmd_line,
+                           " -qtest /dev/null -qtest-log %s",
+                           getenv("QTEST_LOG") ? "/dev/fd/2" : "/dev/null");
 
     /* Split the runcmd into an argv and argc */
     wordexp_t result;
-    wordexp(init_cmdline, &result, 0);
+    wordexp(cmd_line->str, &result, 0);
+    g_string_free(cmd_line, true);
 
     qemu_init(result.we_wordc, result.we_wordv, NULL);
+
+    /* re-enable the rcu atfork, which was previously disabled in qemu_init */
+    rcu_enable_atfork();
 
     return 0;
 }

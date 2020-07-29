@@ -27,6 +27,7 @@
 #include "hw/virtio/virtio-access.h"
 #include "sysemu/dma.h"
 #include "sysemu/runstate.h"
+#include "standard-headers/linux/virtio_ids.h"
 
 /*
  * The alignment to use between consumer and producer parts of vring.
@@ -3230,8 +3231,9 @@ void virtio_instance_init_common(Object *proxy_obj, void *data,
 {
     DeviceState *vdev = data;
 
-    object_initialize_child(proxy_obj, "virtio-backend", vdev, vdev_size,
-                            vdev_name, &error_abort, NULL);
+    object_initialize_child_with_props(proxy_obj, "virtio-backend", vdev,
+                                       vdev_size, vdev_name, &error_abort,
+                                       NULL);
     qdev_alias_all_properties(vdev, proxy_obj);
 }
 
@@ -3278,14 +3280,49 @@ void virtio_init(VirtIODevice *vdev, const char *name,
     vdev->use_guest_notifier_mask = true;
 }
 
+/*
+ * Only devices that have already been around prior to defining the virtio
+ * standard support legacy mode; this includes devices not specified in the
+ * standard. All newer devices conform to the virtio standard only.
+ */
+bool virtio_legacy_allowed(VirtIODevice *vdev)
+{
+    switch (vdev->device_id) {
+    case VIRTIO_ID_NET:
+    case VIRTIO_ID_BLOCK:
+    case VIRTIO_ID_CONSOLE:
+    case VIRTIO_ID_RNG:
+    case VIRTIO_ID_BALLOON:
+    case VIRTIO_ID_RPMSG:
+    case VIRTIO_ID_SCSI:
+    case VIRTIO_ID_9P:
+    case VIRTIO_ID_RPROC_SERIAL:
+    case VIRTIO_ID_CAIF:
+        return true;
+    default:
+        return false;
+    }
+}
+
 hwaddr virtio_queue_get_desc_addr(VirtIODevice *vdev, int n)
 {
     return vdev->vq[n].vring.desc;
 }
 
-bool virtio_queue_enabled(VirtIODevice *vdev, int n)
+bool virtio_queue_enabled_legacy(VirtIODevice *vdev, int n)
 {
     return virtio_queue_get_desc_addr(vdev, n) != 0;
+}
+
+bool virtio_queue_enabled(VirtIODevice *vdev, int n)
+{
+    BusState *qbus = qdev_get_parent_bus(DEVICE(vdev));
+    VirtioBusClass *k = VIRTIO_BUS_GET_CLASS(qbus);
+
+    if (k->queue_enabled) {
+        return k->queue_enabled(qbus->parent, n);
+    }
+    return virtio_queue_enabled_legacy(vdev, n);
 }
 
 hwaddr virtio_queue_get_avail_addr(VirtIODevice *vdev, int n)

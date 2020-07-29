@@ -28,7 +28,14 @@
 #include "hw/mem/nvdimm.h"
 #include "migration/vmstate.h"
 
-GlobalProperty hw_compat_5_0[] = {};
+GlobalProperty hw_compat_5_0[] = {
+    { "pci-host-bridge", "x-config-reg-migration-enabled", "off" },
+    { "virtio-balloon-device", "page-poison", "false" },
+    { "vmport", "x-read-set-eax", "off" },
+    { "vmport", "x-signal-unsupported-cmd", "off" },
+    { "vmport", "x-report-vmx-type", "off" },
+    { "vmport", "x-cmds-v2", "off" },
+};
 const size_t hw_compat_5_0_len = G_N_ELEMENTS(hw_compat_5_0);
 
 GlobalProperty hw_compat_4_2[] = {
@@ -284,12 +291,9 @@ static void machine_set_phandle_start(Object *obj, Visitor *v,
                                       Error **errp)
 {
     MachineState *ms = MACHINE(obj);
-    Error *error = NULL;
     int64_t value;
 
-    visit_type_int(v, name, &value, &error);
-    if (error) {
-        error_propagate(errp, error);
+    if (!visit_type_int(v, name, &value, errp)) {
         return;
     }
 
@@ -1070,9 +1074,8 @@ MemoryRegion *machine_consume_memdev(MachineState *machine,
     MemoryRegion *ret = host_memory_backend_get_memory(backend);
 
     if (memory_region_is_mapped(ret)) {
-        char *path = object_get_canonical_path_component(OBJECT(backend));
-        error_report("memory backend %s can't be used multiple times.", path);
-        g_free(path);
+        error_report("memory backend %s can't be used multiple times.",
+                     object_get_canonical_path_component(OBJECT(backend)));
         exit(EXIT_FAILURE);
     }
     host_memory_backend_set_mapped(backend, true);

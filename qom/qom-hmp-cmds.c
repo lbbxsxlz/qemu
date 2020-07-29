@@ -44,15 +44,27 @@ void hmp_qom_list(Monitor *mon, const QDict *qdict)
 
 void hmp_qom_set(Monitor *mon, const QDict *qdict)
 {
+    const bool json = qdict_get_try_bool(qdict, "json", false);
     const char *path = qdict_get_str(qdict, "path");
     const char *property = qdict_get_str(qdict, "property");
     const char *value = qdict_get_str(qdict, "value");
     Error *err = NULL;
-    QObject *obj;
 
-    obj = qobject_from_json(value, &err);
-    if (err == NULL) {
-        qmp_qom_set(path, property, obj, &err);
+    if (!json) {
+        Object *obj = object_resolve_path(path, NULL);
+
+        if (!obj) {
+            error_set(&err, ERROR_CLASS_DEVICE_NOT_FOUND,
+                      "Device '%s' not found", path);
+        } else {
+            object_property_parse(obj, property, value, &err);
+        }
+    } else {
+        QObject *obj = qobject_from_json(value, &err);
+
+        if (!err) {
+            qmp_qom_set(path, property, obj, &err);
+        }
     }
 
     hmp_handle_error(mon, err);
@@ -71,6 +83,7 @@ void hmp_qom_get(Monitor *mon, const QDict *qdict)
         qobject_unref(str);
     }
 
+    qobject_unref(obj);
     hmp_handle_error(mon, err);
 }
 
@@ -81,32 +94,40 @@ typedef struct QOMCompositionState {
 
 static void print_qom_composition(Monitor *mon, Object *obj, int indent);
 
-static int print_qom_composition_child(Object *obj, void *opaque)
+static int qom_composition_compare(const void *a, const void *b)
 {
-    QOMCompositionState *s = opaque;
+    return g_strcmp0(object_get_canonical_path_component(*(Object **)a),
+                     object_get_canonical_path_component(*(Object **)b));
+}
 
-    print_qom_composition(s->mon, obj, s->indent);
-
+static int insert_qom_composition_child(Object *obj, void *opaque)
+{
+    g_array_append_val(opaque, obj);
     return 0;
 }
 
 static void print_qom_composition(Monitor *mon, Object *obj, int indent)
 {
-    QOMCompositionState s = {
-        .mon = mon,
-        .indent = indent + 2,
-    };
-    char *name;
+    GArray *children = g_array_new(false, false, sizeof(Object *));
+    const char *name;
+    int i;
 
     if (obj == object_get_root()) {
-        name = g_strdup("");
+        name = "";
     } else {
         name = object_get_canonical_path_component(obj);
     }
     monitor_printf(mon, "%*s/%s (%s)\n", indent, "", name,
                    object_get_typename(obj));
-    g_free(name);
-    object_child_foreach(obj, print_qom_composition_child, &s);
+
+    object_child_foreach(obj, insert_qom_composition_child, children);
+    g_array_sort(children, qom_composition_compare);
+
+    for (i = 0; i < children->len; i++) {
+        print_qom_composition(mon, g_array_index(children, Object *, i),
+                              indent + 2);
+    }
+    g_array_free(children, TRUE);
 }
 
 void hmp_info_qom_tree(Monitor *mon, const QDict *dict)
