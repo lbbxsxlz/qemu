@@ -27,7 +27,7 @@
 #include "qemu/error-report.h"
 #include "qemu/config-file.h"
 #include "monitor/monitor.h"
-#include "trace-root.h"
+#include "trace/trace-root.h"
 
 int trace_events_enabled_count;
 
@@ -225,6 +225,7 @@ void trace_init_file(const char *file)
 {
 #ifdef CONFIG_TRACE_SIMPLE
     st_set_trace_file(file);
+    st_set_trace_file_enabled(true);
 #elif defined CONFIG_TRACE_LOG
     /*
      * If both the simple and the log backends are enabled, "--trace file"

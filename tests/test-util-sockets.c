@@ -64,7 +64,8 @@ int monitor_get_fd(Monitor *mon, const char *fdname, Error **errp)
     return dup(mon_fd);
 }
 
-/* Syms in libqemustub.a are discarded at .o file granularity.
+/*
+ * Syms of stubs in libqemuutil.a are discarded at .o file granularity.
  * To replace monitor_get_fd() we must ensure everything in
  * stubs/monitor.c is defined, to make sure monitor.o is discarded
  * otherwise we get duplicate syms at link time.
@@ -312,6 +313,7 @@ static void test_socket_unix_abstract_good(void)
     g_thread_join(serv);
 
     g_free(abstract_sock_name);
+    g_rand_free(r);
 }
 #endif
 

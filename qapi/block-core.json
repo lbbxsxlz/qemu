@@ -1,4 +1,5 @@
 # -*- Mode: Python -*-
+# vim: filetype=python
 
 ##
 # == Block core (VM unrelated)
@@ -66,6 +67,9 @@
 #                 standalone (read-only) raw image without looking at qcow2
 #                 metadata (since: 4.0)
 #
+# @extended-l2: true if the image has extended L2 entries; only valid for
+#               compat >= 1.1 (since 5.2)
+#
 # @lazy-refcounts: on or off; only valid for compat >= 1.1
 #
 # @corrupt: true if the image has been marked corrupt; only valid for
@@ -87,6 +91,7 @@
       'compat': 'str',
       '*data-file': 'str',
       '*data-file-raw': 'bool',
+      '*extended-l2': 'bool',
       '*lazy-refcounts': 'bool',
       '*corrupt': 'bool',
       'refcount-bits': 'int',
@@ -1847,9 +1852,9 @@
 #
 # Since: 4.0
 ##
-  { 'enum': 'BlockPermission',
-    'data': [ 'consistent-read', 'write', 'write-unchanged', 'resize',
-              'graph-mod' ] }
+{ 'enum': 'BlockPermission',
+  'data': [ 'consistent-read', 'write', 'write-unchanged', 'resize',
+            'graph-mod' ] }
 ##
 # @XDbgBlockGraphEdge:
 #
@@ -2155,8 +2160,8 @@
 # <- { "return": {} }
 #
 ##
-  { 'command': 'block-dirty-bitmap-enable',
-    'data': 'BlockDirtyBitmap' }
+{ 'command': 'block-dirty-bitmap-enable',
+  'data': 'BlockDirtyBitmap' }
 
 ##
 # @block-dirty-bitmap-disable:
@@ -2176,8 +2181,8 @@
 # <- { "return": {} }
 #
 ##
-    { 'command': 'block-dirty-bitmap-disable',
-      'data': 'BlockDirtyBitmap' }
+{ 'command': 'block-dirty-bitmap-disable',
+  'data': 'BlockDirtyBitmap' }
 
 ##
 # @block-dirty-bitmap-merge:
@@ -2208,8 +2213,8 @@
 # <- { "return": {} }
 #
 ##
-      { 'command': 'block-dirty-bitmap-merge',
-        'data': 'BlockDirtyBitmapMerge' }
+{ 'command': 'block-dirty-bitmap-merge',
+  'data': 'BlockDirtyBitmapMerge' }
 
 ##
 # @BlockDirtyBitmapSha256:
@@ -2220,8 +2225,8 @@
 #
 # Since: 2.10
 ##
-  { 'struct': 'BlockDirtyBitmapSha256',
-    'data': {'sha256': 'str'} }
+{ 'struct': 'BlockDirtyBitmapSha256',
+  'data': {'sha256': 'str'} }
 
 ##
 # @x-debug-block-dirty-bitmap-sha256:
@@ -2235,8 +2240,8 @@
 #
 # Since: 2.10
 ##
-  { 'command': 'x-debug-block-dirty-bitmap-sha256',
-    'data': 'BlockDirtyBitmap', 'returns': 'BlockDirtyBitmapSha256' }
+{ 'command': 'x-debug-block-dirty-bitmap-sha256',
+  'data': 'BlockDirtyBitmap', 'returns': 'BlockDirtyBitmapSha256' }
 
 ##
 # @blockdev-mirror:
@@ -4303,6 +4308,8 @@
 # @data-file-raw: True if the external data file must stay valid as a
 #                 standalone (read-only) raw image without looking at qcow2
 #                 metadata (default: false; since: 4.0)
+# @extended-l2      True to make the image have extended L2 entries
+#                   (default: false; since 5.2)
 # @size: Size of the virtual disk in bytes
 # @version: Compatibility level (default: v3)
 # @backing-file: File name of the backing file if a backing file
@@ -4323,6 +4330,7 @@
   'data': { 'file':             'BlockdevRef',
             '*data-file':       'BlockdevRef',
             '*data-file-raw':   'bool',
+            '*extended-l2':     'bool',
             'size':             'size',
             '*version':         'BlockdevQcow2Version',
             '*backing-file':    'str',
