@@ -21,16 +21,15 @@
 #include "qemu/module.h"
 
 #include <scsi/sg.h>
+#include "qom/object.h"
 
 #define PR_MAX_RECONNECT_ATTEMPTS 5
 
 #define TYPE_PR_MANAGER_HELPER "pr-manager-helper"
 
-#define PR_MANAGER_HELPER(obj) \
-     OBJECT_CHECK(PRManagerHelper, (obj), \
-                  TYPE_PR_MANAGER_HELPER)
+OBJECT_DECLARE_SIMPLE_TYPE(PRManagerHelper, PR_MANAGER_HELPER)
 
-typedef struct PRManagerHelper {
+struct PRManagerHelper {
     /* <private> */
     PRManager parent;
 
@@ -38,7 +37,7 @@ typedef struct PRManagerHelper {
 
     QemuMutex lock;
     QIOChannel *ioc;
-} PRManagerHelper;
+};
 
 static void pr_manager_send_status_changed_event(PRManagerHelper *pr_mgr)
 {
