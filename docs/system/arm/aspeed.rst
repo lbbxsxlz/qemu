@@ -47,6 +47,7 @@ Supported devices
  * GPIO Controller (Master only)
  * UART
  * Ethernet controllers
+ * Front LEDs (PCA9552 on I2C bus)
 
 
 Missing devices
@@ -72,7 +73,7 @@ Boot options
 ------------
 
 The Aspeed machines can be started using the -kernel option to load a
-Linux kernel or from a firmare image which can be downloaded from the
+Linux kernel or from a firmware image which can be downloaded from the
 OpenPOWER jenkins :
 
    https://openpower.xyz/

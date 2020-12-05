@@ -4,7 +4,7 @@
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
 # License as published by the Free Software Foundation; either
-# version 2 of the License, or (at your option) any later version.
+# version 2.1 of the License, or (at your option) any later version.
 #
 # This library is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -94,7 +94,7 @@ def str_indent(c):
 
 
 def str_fields(fields):
-    """Return a string uniquely identifing FIELDS"""
+    """Return a string uniquely identifying FIELDS"""
     r = ''
     for n in sorted(fields.keys()):
         r += '_' + n
@@ -548,7 +548,7 @@ class Tree:
             output(ind, '    /* ',
                    str_match_bits(innerbits, innermask), ' */\n')
             s.output_code(i + 4, extracted, innerbits, innermask)
-            output(ind, '    return false;\n')
+            output(ind, '    break;\n')
         output(ind, '}\n')
 # end Tree
 
@@ -814,7 +814,7 @@ def parse_generic(lineno, parent_pat, name, toks):
     arg = None
     fmt = None
     for t in toks:
-        # '&Foo' gives a format an explcit argument set.
+        # '&Foo' gives a format an explicit argument set.
         if re.fullmatch(re_arg_ident, t):
             tt = t[1:]
             if arg:
@@ -903,7 +903,7 @@ def parse_generic(lineno, parent_pat, name, toks):
     elif not (is_format and width == 0) and width != insnwidth:
         error(lineno, 'definition has {0} bits'.format(width))
 
-    # Do not check for fields overlaping fields; one valid usage
+    # Do not check for fields overlapping fields; one valid usage
     # is to be able to duplicate fields via import.
     fieldmask = 0
     for f in flds.values():
